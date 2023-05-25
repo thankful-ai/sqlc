@@ -1,48 +1,29 @@
 {
-  description = "convert a terrafirma inventory.json file to ips for a service";
+    description = "sqlc";
+    inputs = {
+      nixpkgs.url = "github:NixOS/nixpkgs";
+    };
 
-  # Nixpkgs / NixOS version to use.
-  inputs.nixpkgs.url = "nixpkgs/nixos-22.11";
+    outputs = {self, nixpkgs}: {
+      defaultPackage.x86_64-linux =
+        with import nixpkgs { system = "x86_64-linux"; };
 
-  outputs = { self, nixpkgs }:
-    let
+        stdenv.mkDerivation rec {
+          name = "sqlc-${version}";
 
-      # to work with older version of flakes
-      lastModifiedDate = self.lastModifiedDate or self.lastModified or "19700101";
+          version = "1.18.0";
 
-      version = builtins.substring 0 8 lastModifiedDate;
+          # https://nixos.wiki/wiki/Packaging/Binaries
+          src = pkgs.fetchurl {
+            url = "https://github.com/kyleconroy/sqlc/releases/download/v1.18.0/sqlc_1.18.0_linux_amd64.tar.gz";
+            sha256 = "sha256-PPttgt7JvBWjf5g4hss9VerNMbrYU43IZEl8/1nRM8U=";
+          };
 
-      # System types to support.
-      supportedSystems = [ "x86_64-linux" "x86_64-darwin" "aarch64-linux" "aarch64-darwin" ];
+          sourceRoot = ".";
 
-      # Helper function to generate an attrset '{ x86_64-linux = f "x86_64-linux"; ... }'.
-      forAllSystems = nixpkgs.lib.genAttrs supportedSystems;
-
-      # Nixpkgs instantiated for supported system types.
-      nixpkgsFor = forAllSystems (system: import nixpkgs { inherit system; });
-
-    in
-    {
-
-      # Provide some binary packages for selected system types.
-      packages = forAllSystems (system:
-        let
-          pkgs = nixpkgsFor.${system};
-        in
-        {
-          sqlc = pkgs.buildGoModule {
-              name = "sqlc";
-              src = ./.;
-              CGO_ENABLED = 0;
-              doCheck = false;
-              subPackages = [ "cmd/sqlc" ];
-              vendorSha256 = "QFxSUsA5FDEBr8z0DO09sdXclY9JBU9pfKfs0RH4Bjk=";
-            };
-        });
-
-      # The default package for 'nix build'. This makes sense if the
-      # flake provides only one package or there is a clear "main"
-      # package.
-      defaultPackage = forAllSystems (system: self.packages.${system}.sqlc);
+          installPhase = ''
+            install -m755 -D sqlc $out/bin/sqlc
+          '';
+        };
     };
 }
